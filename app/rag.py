@@ -1,7 +1,6 @@
 from pypdf import PdfReader
 import chromadb
 import os
-from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from groq import Groq
 from dotenv import load_dotenv
@@ -19,9 +18,7 @@ collection = chroma_client.get_or_create_collection(
     name="documents"
 )
 
-embedding_model = SentenceTransformer(
-    "all-MiniLM-L6-v2"
-)
+
 
 print("ChromaDB initialized")
 print("Embedding model loaded")
@@ -57,14 +54,10 @@ def store_chunks(chunks, filename):
 
     for chunk in chunks:
 
-        embedding = embedding_model.encode(chunk).tolist()
-
         collection.add(
             ids=[str(uuid.uuid4())],
 
             documents=[chunk],
-
-            embeddings=[embedding],
 
             metadatas=[
                 {
@@ -77,10 +70,8 @@ def store_chunks(chunks, filename):
 
 def retrieve_relevant_chunks(query, top_k=3):
 
-    query_embedding = embedding_model.encode(query).tolist()
-
     results = collection.query(
-        query_embeddings=[query_embedding],
+        query_texts=[query],
         n_results=top_k
     )
 
@@ -126,12 +117,12 @@ def generate_answer(query):
     answer = response.choices[0].message.content
 
     return {
-    "answer": answer,
-    "sources": [
-        {
-            "content": chunk,
-            "source": meta["source"]
-        }
-        for chunk, meta in zip(relevant_chunks, metadata)
-    ]
-}
+        "answer": answer,
+        "sources": [
+            {
+                "content": chunk,
+                "source": meta["source"]
+            }
+            for chunk, meta in zip(relevant_chunks, metadata)
+        ]
+    }

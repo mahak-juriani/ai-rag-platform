@@ -5,6 +5,7 @@ from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from groq import Groq
 from dotenv import load_dotenv
+import uuid
 
 load_dotenv()
 
@@ -52,19 +53,27 @@ def chunk_text(text):
 
     return chunks
 
-def store_chunks(chunks):
+def store_chunks(chunks, filename):
 
-    for index, chunk in enumerate(chunks):
+    for chunk in chunks:
 
         embedding = embedding_model.encode(chunk).tolist()
 
         collection.add(
-            ids=[str(index)],
+            ids=[str(uuid.uuid4())],
+
             documents=[chunk],
-            embeddings=[embedding]
+
+            embeddings=[embedding],
+
+            metadatas=[
+                {
+                    "source": filename
+                }
+            ]
         )
 
-    print(f"Stored {len(chunks)} chunks")
+    print(f"Stored {len(chunks)} chunks from {filename}")
 
 def retrieve_relevant_chunks(query, top_k=3):
 
@@ -75,11 +84,18 @@ def retrieve_relevant_chunks(query, top_k=3):
         n_results=top_k
     )
 
-    return results["documents"][0]
+    return {
+        "documents": results["documents"][0],
+        "metadata": results["metadatas"][0]
+    }
 
 def generate_answer(query):
 
-    relevant_chunks = retrieve_relevant_chunks(query)
+    retrieved_data = retrieve_relevant_chunks(query)
+
+    relevant_chunks = retrieved_data["documents"]
+
+    metadata = retrieved_data["metadata"]
 
     context = "\n\n".join(relevant_chunks)
 
@@ -110,6 +126,12 @@ def generate_answer(query):
     answer = response.choices[0].message.content
 
     return {
-        "answer": answer,
-        "sources": relevant_chunks
-    }
+    "answer": answer,
+    "sources": [
+        {
+            "content": chunk,
+            "source": meta["source"]
+        }
+        for chunk, meta in zip(relevant_chunks, metadata)
+    ]
+}

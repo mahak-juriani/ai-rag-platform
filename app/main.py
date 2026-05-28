@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File
+from typing import List
 import shutil
 from app.rag import retrieve_relevant_chunks
 from app.rag import (
@@ -14,22 +15,31 @@ def home():
     return {"message": "RAG Platform Running"}
 
 @app.post("/upload")
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_pdfs(files: List[UploadFile] = File(...)):
 
-    file_path = f"uploads/{file.filename}"
+    processed_files = []
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    for file in files:
 
-    extracted_text = extract_text_from_pdf(file_path)
+        file_path = f"uploads/{file.filename}"
 
-    chunks = chunk_text(extracted_text)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    store_chunks(chunks)
+        extracted_text = extract_text_from_pdf(file_path)
+
+        chunks = chunk_text(extracted_text)
+
+        store_chunks(chunks, file.filename)
+
+        processed_files.append({
+            "filename": file.filename,
+            "chunks": len(chunks)
+        })
 
     return {
-        "message": "Document processed successfully",
-        "total_chunks": len(chunks)
+        "message": "Documents processed successfully",
+        "files": processed_files
     }
 
 @app.get("/search")

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File
-from typing import List
+from typing import List, Annotated
 import shutil
 from app.rag import retrieve_relevant_chunks
 from app.rag import (
